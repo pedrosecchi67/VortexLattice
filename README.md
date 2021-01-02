@@ -83,3 +83,13 @@ dat=get_data(acft; alpha=alpha, control_deflections=Dict(:aileron=>delta_aileron
 
 plot_aircraft(acft)
 ```
+
+## Installation
+
+To install VortexLattice.jl, use:
+
+```
+add https://github.com/pedrosecchi67/VortexLattice
+```
+
+... in the Julia package manager.
