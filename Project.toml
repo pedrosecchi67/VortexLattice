@@ -1,0 +1,9 @@
+name = "VortexLattice"
+uuid = "574f34ed-9bf9-41e3-aba0-0c0dd83693b2"
+authors = ["pedrosecchi67 <pedrosecchimail@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
+PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
