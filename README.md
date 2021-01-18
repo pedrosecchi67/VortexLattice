@@ -10,78 +10,124 @@ It is currently capable of obtaining:
 * Full configuration coefficients;
 * Geometry and spatial distribution plots (using matplotlib as a back-end).
 
+## Defining Viscous Corrections for Airfoils
+
+Struct to contain information about an airfoil:
+
+* `camberline_coords`: matrix `(shape (npts, 2))` containing airfoil camber line coordinates
+* `CL_correct`: function as `C_L=C_L_inv+CL_correct(CL)`
+* `CD_correct`: function as `C_D=C_D_inv+CD_correct(CL)`
 ```
-using VortexLattice
+mutable struct Airfoil
+    camberline_coords::Matrix{Float64}
+    CL_correct::Function
+    CD_correct::Function
+end
+```
 
-# geometry
+Constructor for inviscid flat plate airfoil (default for wing sections):
+```
+inviscid_flatplate()=Airfoil(reshape([0.0, 1.0, 0.0, 0.0], 2, 2), CL->0.0, CL->0.0)
+```
 
-b=1.0
-croot=0.25
-taper=0.5
-twist=-10.0
-theta_root=5.0
-sweep=30.0
-dihedron=5.0
+## Defining Lifting Surfaces
 
-# flight conditions
+Constructor for wing section (uses a flat plate airfoil as default):
 
-alpha=5.0
-delta_aileron=5.0
+* `LE`: position of the leading edge
+* `chord`: section chord
+* `incidence`: section incidence. Defaults to zero
+* `afl`: instance of struct Airfoil to use for viscous corrections. Defaults to flat plate
+* `controls`: array of tuples indicating present control surfaces. Tuples should indicate, respectively, the control's name (Symbol), the percentage of the chord in
+which it's initiated and its gain in the present section
+```
+Section(LE::Vector{Float64}, chord::Float64; 
+    incidence::Float64=0.0, afl=inviscid_flatplate(), 
+    controls=[])=Section(LE, chord, incidence, afl, controls)
+```
 
-# reference dimensions
+Constructor for a lifting surface based on a list of sections (from left to right):
 
-Sref=b*croot*(1.0+taper)/2
-cref=(2.0*(taper^2+taper+1.0))*croot/(3.0*(1.0+taper))
-bref=b
+For arguments `cdiscs` and `bdiscs`, a usage example is:
 
-# discretization settings
+```
+sects=[
+    (LE=[1.0, -1.0, 0.0], chord=0.5),
+    (LE=[0.0, 0.0, 0.0], chord=1.0),
+    (LE=[1.0, -1.0, 0.0], chord=0.5)
+]
+bdiscs=[
+    [0.0, 0.5, 1.0],
+    [0.0, 1.0]
+]
+cdiscs=[
+    [0.0, 0.5, 1.0],
+    [0.0, 0.5, 1.0],
+    [0.0, 0.5, 1.0]
+]
+```
 
-cos_dist=collect(LinRange(-pi/2, pi/2, 20))
-cos_dist=[sin(e)/2+0.5 for e in cos_dist]
+Which would result in the panel corners:
+```
+[
+    [1.0, -1.0, 0.0] [0.5, -0.5, 0.0] [0.0, 0.0, 0.0] [1.0, 1.0, 0.0]
+    [1.25, -1.0, 0.0] [0.875, -0.5, 0.0] [0.5, 0.0, 0.0] [1.25, 1.0, 0.0]
+    [1.5, -1.0, 0.0] [1.25, -0.5, 0.0] [1.0, 0.0, 0.0] [1.5, 1.0, 0.0]
+]
+```
 
-# airfoils (see API reference for further detail)
+* `sects`: vector of sections to base the surface on
+* `cdiscs`: vector of vectors, each describing a mapping for the chordwise discretization in a wing section (ranging from zero to 1, and spaced as desired for panel
+edges)
+* `bdiscs`: vector of vectors, each describing a mapping for the spanwise discretization in a wing quadrant
+```
+function Surface(sects::Vector{Section}, cdiscs::Vector{Vector{Float64}}, 
+    bdiscs::Vector{Vector{Float64}})
+```
 
-fplate=inviscid_flatplate()
+## Simulating an Aircraft
 
-# wing sections
+Constructor for Aircraft struct based on an array of surfaces:
 
-sleft=Section(
-    [b*tand(sweep)/2, -b/2, b*tand(dihedron)/2], 
-    croot*taper; 
-    incidence=theta_root+twist, 
-    controls=[(:aileron, 0.2, 1.0)]
-)
-scenter=Section(
-    [0.0, 0.0, 0.0], 
-    croot; incidence=theta_root, 
-    controls=[(:aileron, 0.2, 1.0), 
-    (:aileron, 0.2, -1.0)]
-)
-sright=Section(
-    [b*tand(sweep)/2, b/2, b*tand(dihedron)/2], 
-    croot*taper; 
-    incidence=theta_root+twist, 
-    controls=[(:aileron, 0.2, -1.0)]
-)
+* `surfaces`: vector of surfaces
+* `Sref`: reference surface
+* `cref`: reference chord
+* `bref`: reference span
 
-cdiscs=[cos_dist, cos_dist, cos_dist]
-bdiscs=[cos_dist, cos_dist]
+```
+function Aircraft(surfaces::Vector{Surface}; 
+    Sref::Float64=1.0, cref::Float64=1.0, bref::Float64=1.0)
+```
 
-# surfaces
+Function to obtain all pertinent coefficients for an aircraft:
 
-surf=Surface([sleft, scenter, sright], cdiscs, bdiscs)
+* `acft`: `Aircraft` struct instance
+* `alpha`: angle of attack
+* `beta`: sideslip angle
+* `p`: x axis (stability and control coordinate system) angular velocity
+* `q`: y axis (stability and control coordinate system) angular velocity
+* `r`: z axis (stability and control coordinate system) angular velocity
+* `control_deflections`: dictionary relating control symbols and control deflections
+* `CG`: vector with coordinates for momentum calculations
+```
+function get_data(acft::Aircraft; alpha::Float64=0.0, beta::Float64=0.0,
+    p::Float64=0.0, q::Float64=0.0, r::Float64=0.0, control_deflections::Dict{Symbol, Float64}, 
+    CG::Vector{Float64}=zeros(Float64, 3))
+```
 
-# complete aircraft and solution
+`get_data` should return a dictionary with keys for sectional forces, surface forces, total forces and hinge moments. An example of the output data structure for the output dictionary can be seen by running `examples/tapered_swept_wing.jl`.
 
-acft=Aircraft([surf]; Sref=Sref, bref=bref, cref=cref)
+To obtain the distribution of positions and chords around which sectional data is produced, use vectors `Surface.quarter_chords` and `Surface.chords`.
 
-# coefficient calculations
+## Further reference
 
-dat=get_data(acft; alpha=alpha, control_deflections=Dict(:aileron=>delta_aileron))
+For more details, refer to the docstrings with Julia's help menu, or locally generate the automatic documentation with:
 
-# plotting (based on matplotlib wrappers)
-
-plot_aircraft(acft)
+```
+$ julia
+include("docs/make.jl")
+exit()
+$ firefox docs/build/index.html
 ```
 
 ## Installation

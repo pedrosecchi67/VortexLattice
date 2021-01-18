@@ -29,12 +29,8 @@ bdiscs=[cos_dist, cos_dist]
 
 surf=Surface([sleft, scenter, sright], cdiscs, bdiscs)
 
-@time begin
-  acft=Aircraft([surf]; Sref=Sref, bref=bref, cref=cref)
-end
+acft=Aircraft([surf]; Sref=Sref, bref=bref, cref=cref)
 
-@time begin
-  dat=get_data(acft; alpha=alpha, control_deflections=Dict(:aileron=>delta_aileron))
-end
+dat=get_data(acft; alpha=alpha, control_deflections=Dict(:aileron=>delta_aileron))
 
-plot_aircraft(acft)
+# plot_aircraft(acft)
