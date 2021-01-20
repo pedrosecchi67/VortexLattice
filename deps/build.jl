@@ -1,10 +1,12 @@
 using PyCall
+using Conda
 
-py"""
-try:
+try
+    py"""
     from pip import main
 
     main(['install', '-y', 'matplotlib'])
-except:
-    print("Unable to install matplotlib. Plotting functions may be unavailable for execution, as will be warned during import")
-"""
+    """
+catch
+    Conda.add("matplotlib")
+end
