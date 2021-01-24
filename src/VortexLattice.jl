@@ -843,7 +843,8 @@ module VortexLattice
   * `CG`: vector with coordinates for momentum calculations
   """
   function get_data(acft::Aircraft; alpha::Float64=0.0, beta::Float64=0.0,
-      p::Float64=0.0, q::Float64=0.0, r::Float64=0.0, control_deflections::Dict{Symbol, Float64}, CG::Vector{Float64}=zeros(Float64, 3))
+      p::Float64=0.0, q::Float64=0.0, r::Float64=0.0, control_deflections::Dict{Symbol, Float64}=Dict{Symbol, Float64}(),
+      CG::Vector{Float64}=zeros(Float64, 3))
       soln, vels=VLsolve(acft; alpha=alpha, beta=beta, p=p, q=q, r=r, control_deflections=control_deflections)
 
       forc=get_forces(acft, soln, vels)
