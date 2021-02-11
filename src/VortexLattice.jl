@@ -621,7 +621,7 @@ module VortexLattice
     forces=zeros(Float64, size(soln, 1), 3)
 
     for (i, (vort, kin)) in enumerate(zip(soln, acft.kins))
-      forces[i, :].=cross(vels[i, :], kin[2].-kin[1])*vort
+      forces[i, :].=cross(vels[i, :], kin[2].-kin[1])*(2*vort)
     end
 
     return forces
