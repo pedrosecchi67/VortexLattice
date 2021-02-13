@@ -499,9 +499,9 @@ module VortexLattice
   """
   function get_freestream_velocities(acft::Aircraft; alpha::Float64=0.0, beta::Float64=0.0, p::Float64=0.0, q::Float64=0.0, r::Float64=0.0)
     omega=[
-      -p*2.0/acft.bref,
+      p*2.0/acft.bref,
       q*2.0/acft.cref,
-      -r*2.0/acft.bref
+      r*2.0/acft.bref
     ]
 
     xhat=[cosd(alpha)*cosd(beta), cosd(alpha)*sind(beta), sind(alpha)]
@@ -511,7 +511,7 @@ module VortexLattice
     vels=zeros(Float64, npts, 3)
 
     for (i, colpt) in enumerate(acft.colpts)
-      vels[i, :].=xhat.+cross(omega, colpt)
+      vels[i, :].=xhat.-cross(omega, colpt)
     end
 
     return vels
