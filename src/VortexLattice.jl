@@ -45,12 +45,13 @@ module VortexLattice
       d3=geps
     end
 
-    vinf=(cross(a, b)/d1)*(1.0/na+1.0/nb).+
-      cross(a, x)/(na*d2).-cross(b, x)/(nb*d3)
+    vbound = (cross(a, b)/d1)*(1.0/na+1.0/nb)
+    vinf = cross(a, x)/(na*d2).-cross(b, x)/(nb*d3)
 
-    vinf/=(4*pi)
+    vinf./=(4*pi)
+    vbound./=(4*pi)
 
-    return vinf
+    return vinf, vbound
   end
 
   """
@@ -409,6 +410,8 @@ module VortexLattice
     the hinge arm and the gain for each control surface acting on each panel
   * `kins`: their respective vortex kins (vector of tuple of vectors format)
   * `AICM3`: aerodynamic influence coefficient matrix in 3D
+  * `downwash_AICM3`: aerodynamic influence coefficient matrix in 3D disregarding bound vortex segments 
+    (check Katz & Plotkin for more information)
   * `AICM`: aerodynamic influence coefficient matrix
   * `LU_AICM`: LU-decomposed aerodynamic coefficient matrix
   """
@@ -423,6 +426,7 @@ module VortexLattice
     control_ponderations::Vector{Vector{Tuple{Symbol, Float64, Float64}}}
     kins::Vector{Tuple{Vector{Float64}, Vector{Float64}}}
     AICM3::Array{Float64, 3}
+    downwash_AICM3::Array{Float64, 3}
     AICM::Matrix{Float64}
     LU_AICM::LU
   end
@@ -462,6 +466,7 @@ module VortexLattice
     end
 
     AICM3=zeros(Float64, ncol, ncol, 3)
+    downwash_AICM3=zeros(Float64, ncol, ncol, 3)
     AICM=zeros(Float64, ncol, ncol)
 
     xhat=[1.0, 0.0, 0.0]
@@ -471,16 +476,19 @@ module VortexLattice
         a=colpt.-kin[1]
         b=colpt.-kin[2]
 
-        vinfl=hshoe_vinf(a, b, xhat)
+        vinf, vbound=hshoe_vinf(a, b, xhat)
 
-        AICM3[i, j, :].=vinfl
-        AICM[i, j]=dot(vinfl, normal)
+        vinfluence = vinf .+ vbound
+
+        AICM3[i, j, :].=vinfluence
+        downwash_AICM3[i, j, :].=vinf
+        AICM[i, j]=dot(vinfluence, normal)
       end
     end
 
     LU_AICM=lu(AICM)
     
-    return Aircraft(Sref, cref, bref, surfaces, colpts, normals, mtosys, control_ponderations, kins, AICM3, AICM, LU_AICM)
+    return Aircraft(Sref, cref, bref, surfaces, colpts, normals, mtosys, control_ponderations, kins, AICM3, downwash_AICM3, AICM, LU_AICM)
   end
 
   export Aircraft
@@ -581,7 +589,7 @@ module VortexLattice
     soln=-(acft.LU_AICM\normal_vels)
 
     for i=1:3
-      vels[:, i].+=acft.AICM3[:, :, i]*soln
+      vels[:, i].+=acft.downwash_AICM3[:, :, i]*soln
     end
 
     return soln, vels
