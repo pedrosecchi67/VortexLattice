@@ -1,6 +1,7 @@
 module VortexLattice
 
   using LinearAlgebra
+  using DelimitedFiles
 
   include("MeshPlotting.jl")
   using .MeshPlotting
@@ -98,6 +99,84 @@ module VortexLattice
   Constructor for inviscid flat plate airfoil
   """
   inviscid_flatplate()=Airfoil(reshape([0.0, 1.0, 0.0, 0.0], 2, 2), CL->0.0, CL->0.0)
+
+  function _interp_intra(afl_pts::Matrix{Float64}, x::Float64)
+
+    for i = size(afl_pts, 1):-1:2
+      if afl_pts[i, 1] <= x && afl_pts[i - 1, 1] >= x
+        return afl_pts[i, 2] + (afl_pts[i - 1, 2] - afl_pts[i, 2]) * (x - afl_pts[i, 1]) / (afl_pts[i - 1, 1] - afl_pts[i, 1])
+      end
+    end
+
+    throw(
+      error(
+        "Point at $x not found in airfoil"
+      )
+    )
+
+  end
+
+  """
+  Constructor for airfoil based on AVL correction coefficients
+
+  * `airfoil_file`: file for airfol in Selig format
+  * `CLAF`: ratio between lift coefficient derivative `CLα` and `2π`, for lift correction
+  * `polar_points`: vector of tuples with points for polar interpolation.
+
+  Example:
+
+  ```
+  [
+    (0.0, 0.012),
+    (0.2, 0.010),
+    (0.4, 0.012) # arbitraty parabolic interpolation from `CL` to `CD`
+  ]
+  ```
+  """
+  function Airfoil(
+    afl_file::String,
+    CLAF::Float64,
+    polar_points::Vector{Tuple{Float64, Float64}}
+  )
+
+    try
+      airfoil_pts = readdlm(afl_file; skipstart = 1)
+
+      nLE = argmax(airfoil_pts[:, 1])
+
+      upper_surface_points = airfoil_pts[1:nLE, :]
+
+      for i = 1:nLE
+        upper_surface_points[i, 2] = (upper_surface_points[i, 2] + _interp_intra(airfoil_pts, upper_surface_points[i, 1])) / 2
+      end
+
+      CLs = [
+        CL for (CL, _) in polar_points
+      ]
+      CDs = [
+        CD for (_, CD) in polar_points
+      ]
+
+      pA = [
+        CLs.^0 CLs.^1 CLs.^2
+      ]
+
+      pcoefs = pA \ CDs
+
+      return Airfoil(
+        upper_surface_points,
+        CL -> (CLAF - 1.0) * CL,
+        CL -> (pcoefs[1] + pcoefs[2] * CL + pcoefs[3] * CL ^ 2)
+      )
+    catch
+      throw(
+        error(
+          "Error reading from file $afl_file"
+        )
+      )
+    end
+
+  end
 
   """
   Function to get angle of attack due to ``dz/dx`` component of airfoil geometry
@@ -226,6 +305,17 @@ module VortexLattice
 
     return 0
   end
+
+  """
+  Function to obtain a cossenoidal distribution between 0 and 1, with `n` points
+  """
+  function cossenoidal_distribution(n::Int64)
+
+    (sin.(collect(LinRange(- pi / 2, pi / 2, n))) .+ 1.0) ./ 2
+
+  end
+
+  export cossenoidal_distribution
 
   """
   Constructor for a lifting surface based on a list of sections (from left to right)
