@@ -142,9 +142,9 @@ module VortexLattice
     try
       airfoil_pts = readdlm(afl_file; skipstart = 1)
 
-      nLE = argmax(airfoil_pts[:, 1])
+      nLE = argmin(airfoil_pts[:, 1])
 
-      upper_surface_points = airfoil_pts[1:nLE, :]
+      upper_surface_points = airfoil_pts[nLE:-1:1, :]
 
       for i = 1:nLE
         upper_surface_points[i, 2] = (upper_surface_points[i, 2] + _interp_intra(airfoil_pts, upper_surface_points[i, 1])) / 2
