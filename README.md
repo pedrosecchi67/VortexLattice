@@ -1,5 +1,7 @@
 # VortexLattice.jl
 
+## Warning to AWZ developers: this is to be considered legacy code and ought to be replaced by more recent VLM modules in further AWZ versions
+
 VortexLattice.jl is a Julia package for the Vortex Lattice Method I've created for my hobbies and academic projects.
 It is meant to make simple the conceptual design of aircraft configurations of interest, as in the example below.
 
