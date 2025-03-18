@@ -528,8 +528,10 @@ module VortexLattice
   * `Sref`: reference surface
   * `cref`: reference chord
   * `bref`: reference span
+  * `ground_effect`: boolean for ground effect analysis
+  * `ground_height`: ground distance from main surface
   """
-  function Aircraft(surfaces::Vector{Surface}; Sref::Float64=1.0, cref::Float64=1.0, bref::Float64=1.0)
+  function Aircraft(surfaces::Vector{Surface}; Sref::Float64=1.0, cref::Float64=1.0, bref::Float64=1.0,ground_effect::Bool=false,ground_height::Float64=0.0)
     colpts=Vector{Vector{Float64}}()
     normals=Vector{Vector{Float64}}()
     mtosys=Vector{Matrix{Float64}}()
@@ -565,10 +567,21 @@ module VortexLattice
       for (j, kin) in enumerate(kins)
         a=colpt.-kin[1]
         b=colpt.-kin[2]
-
         vinf, vbound=hshoe_vinf(a, b, xhat)
-
         vinfluence = vinf .+ vbound
+
+        # ground effect condition
+        if ground_effect
+          # reflecting points to create mirror image
+          kin1_m = [kin[1][1], kin[1][2], -2*ground_height - kin[1][3]]
+          kin2_m = [kin[2][1], kin[2][2], -2*ground_height - kin[2][3]]
+          a_m = colpt .- kin1_m
+          b_m = colpt .- kin2_m
+          vinf_m, vbound_m = hshoe_vinf(a_m, b_m, xhat)
+          # mirror vortice influence
+          mirror_influence = -(vinf_m .+ vbound_m)
+          vinfluence .+= mirror_influence
+        end
 
         AICM3[i, j, :].=vinfluence
         downwash_AICM3[i, j, :].=vinf
